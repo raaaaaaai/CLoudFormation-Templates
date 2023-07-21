@@ -81,13 +81,13 @@ Resources:
   MyDBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBName: MyDatabase
-      Engine: mysql
-      MasterUsername: dbadmin
-      MasterUserPassword: MyPassword123
-      AllocatedStorage: "20"
-      DBInstanceClass: db.t2.micro
-      EngineVersion: "8.0.33"
+      DBName: #Your Database Name
+      Engine: #Your Database Engine MySQL or PostgreSql
+      MasterUsername: #Username
+      MasterUserPassword: #Password
+      AllocatedStorage: #Storage
+      DBInstanceClass: #Instance Type
+      EngineVersion: #Version
       DBSubnetGroupName: !Ref MyDBSubnetGroup
 
   MySecurityGroup:
@@ -110,8 +110,11 @@ Resources:
   MyEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro
+      InstanceType: #Instance Type
       SecurityGroupIds:
         - !Ref MySecurityGroup
       SubnetId: !Ref PublicSubnet
-      ImageId: ami-072ec8f4ea4a6f2cf
+      ImageId: #Ami-ID
+      Tags:
+        - Key: Name
+          Value: #Name of the instance
