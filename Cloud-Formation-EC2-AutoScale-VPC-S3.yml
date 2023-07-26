@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template for Auto Scaling Group
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: "10.0.0.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs "ap-south-1"]
+      Tags:
+        - Key: Name
+          Value: PublicSubnet
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: s3-bucket-0383828383
+
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP access 
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: "0.0.0.0/0"
+      
+  MyLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-072ec8f4ea4a6f2cf  
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      IamInstanceProfile: !Ref MyEC2InstanceProfile
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+        yum install -y httpd
+        service httpd start
+        chkconfig httpd on
+        echo "<html><h1>Hello from Instance</h1></html>" > /var/www/html/index.html
+
+  MyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchConfigurationName: !Ref MyLaunchConfiguration
+      MinSize: 2
+      MaxSize: 5
+      DesiredCapacity: 3
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: "EC2-Instance"
+          PropagateAtLaunch: true
+
+  MyScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref MyAutoScalingGroup
+      PolicyType: SimpleScaling
+      ScalingAdjustment: 2
+      AdjustmentType: ChangeInCapacity  
+      Cooldown: '60'
+
+  MyEC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+        - !Ref MyEC2Role
+
+  MyEC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+  MyEC2Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MyEC2Policy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${MyS3Bucket}/*"
+      Roles:
+        - !Ref MyEC2Role
