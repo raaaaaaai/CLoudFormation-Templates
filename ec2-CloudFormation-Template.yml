@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Test Template to make an EC2 instance 
+Parameters:
+  InstanceName:
+    Type: String
+    Description: Name of the EC2 instance
+
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-072ec8f4ea4a6f2cf
+      Tags:
+        - Key: Name
+          Value: !Ref InstanceName
